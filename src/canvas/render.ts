@@ -13,7 +13,7 @@ import {
 } from '../lib/camera';
 import { densityShade } from '../lib/density';
 import { fmtFixed, fmtTrim } from '../lib/format';
-import { rotateAbout, type SimSnapshot } from '../lib/dynamics';
+import { leverArm, maxTorque, rotateAbout, torqueAboutPivot, type SimSnapshot } from '../lib/dynamics';
 
 /** Alto de la regla superior y ancho de la regla izquierda, en px. */
 export const RULER_TOP = 22;
@@ -325,12 +325,20 @@ function drawSupport(
   ctx.fillText(`x=${fmtTrim(x, 2)}`, lx, gy + 42);
 }
 
-function arrow(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, color: string): void {
+function arrow(
+  ctx: CanvasRenderingContext2D,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  color: string,
+  width = 2.5,
+  head = 9,
+): void {
   const ang = Math.atan2(y1 - y0, x1 - x0);
-  const head = 9;
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
-  ctx.lineWidth = 2.5;
+  ctx.lineWidth = width;
   ctx.beginPath();
   ctx.moveTo(x0, y0);
   ctx.lineTo(x1 - Math.cos(ang) * head * 0.6, y1 - Math.sin(ang) * head * 0.6);
@@ -487,6 +495,9 @@ export function drawScene(ctx: CanvasRenderingContext2D, size: ViewSize, cam: Ca
   const sim = scene.sim;
   const tipping = sim.mode === 'tipping' && sim.setup && sim.state ? { setup: sim.setup, theta: sim.state.theta } : null;
   const rot = (p: Point): Point => (tipping ? rotateAbout(p, tipping.setup.px, tipping.setup.py, tipping.theta) : p);
+  const settle = sim.mode === 'forces' ? (sim.settle ?? null) : null;
+  const liftCm = settle ? settle.offsetCm : 0;
+  const liftPx = liftCm * scaleOf(cam);
 
   if (tipping) {
     ctx.strokeStyle = 'rgba(148, 163, 184, 0.45)';
@@ -509,7 +520,12 @@ export function drawScene(ctx: CanvasRenderingContext2D, size: ViewSize, cam: Ca
     ctx.rotate(-tipping.theta);
     ctx.translate(-ps.x, -ps.y);
   }
+  if (liftPx > 0.5) {
+    ctx.save();
+    ctx.translate(0, -liftPx);
+  }
   for (const b of a.shapes) drawShape(ctx, b, scene, toS);
+  if (liftPx > 0.5) ctx.restore();
   if (tipping) ctx.restore();
 
   const { xA, xB } = a.supports;
@@ -528,8 +544,8 @@ export function drawScene(ctx: CanvasRenderingContext2D, size: ViewSize, cam: Ca
   const xCM = a.centerOfMass.x.value;
   const yCM = a.centerOfMass.y.value;
   if (a.status !== 'sin_masa' && xG !== null && yG !== null && xCM !== null && yCM !== null) {
-    const gw = rot({ x: xG, y: yG });
-    const cw = rot({ x: xCM, y: yCM });
+    const gw = rot({ x: xG, y: yG + liftCm });
+    const cw = rot({ x: xCM, y: yCM + liftCm });
     const g = toS(gw.x, gw.y);
     const c = toS(cw.x, cw.y);
 
@@ -598,13 +614,71 @@ export function drawScene(ctx: CanvasRenderingContext2D, size: ViewSize, cam: Ca
         ctx.stroke();
         tag(ctx, 'impacto', ip.x, ip.y - 16, THEME.danger);
       }
+
+      // Torque en vivo: arco alrededor del pivote proporcional a |τ| + brazo de palanca.
+      const tau = torqueAboutPivot(tipping.theta, tipping.setup);
+      const tmax = maxTorque(tipping.setup);
+      const frac = tmax > 1e-9 ? Math.min(1, Math.abs(tau) / tmax) : 0;
+      const sweep = ((60 + frac * 240) * Math.PI) / 180;
+      const dirS = tau >= 0 ? -1 : 1;
+      const aStart = -Math.PI / 2;
+      const aEnd = aStart + dirS * sweep;
+      const R_T = 56;
+      ctx.strokeStyle = THEME.danger;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(ps.x, ps.y, R_T, aStart, aEnd, dirS < 0);
+      ctx.stroke();
+      const ex = ps.x + R_T * Math.cos(aEnd);
+      const ey = ps.y + R_T * Math.sin(aEnd);
+      const tang = aEnd + (dirS > 0 ? Math.PI / 2 : -Math.PI / 2);
+      ctx.fillStyle = THEME.danger;
+      ctx.beginPath();
+      ctx.moveTo(ex, ey);
+      ctx.lineTo(ex - 8 * Math.cos(tang - 0.35), ey - 8 * Math.sin(tang - 0.35));
+      ctx.lineTo(ex - 8 * Math.cos(tang + 0.35), ey - 8 * Math.sin(tang + 0.35));
+      ctx.closePath();
+      ctx.fill();
+      tag(ctx, `τ_P = ${fmtFixed(tau, 2)} N·m`, ex, ey - 16, THEME.danger);
+      ctx.strokeStyle = THEME.warn;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(ps.x, c.y);
+      ctx.lineTo(c.x, c.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      tag(ctx, `d = ${fmtFixed(leverArm(tipping.theta, tipping.setup) * 100, 1)} cm`, (ps.x + c.x) / 2, c.y - 12, THEME.warn);
+      tag(ctx, 'g = 9,81 m/s² ↓', size.w - 18, RULER_TOP + 44, THEME.textMuted, 'right');
     }
 
     if (sim.mode === 'forces' && a.reactions) {
       const r = a.reactions;
       const k = FORCE_PX / r.weight;
-      const p = sim.startedAt === undefined ? 1 : Math.min(1, (performance.now() - sim.startedAt) / 400);
-      const grow = 1 - Math.pow(1 - p, 3);
+      const now = performance.now();
+      const growP = settle
+        ? settle.landedAt !== null
+          ? Math.min(1, (now - settle.landedAt) / 400)
+          : 0
+        : sim.startedAt === undefined
+          ? 1
+          : Math.min(1, (now - sim.startedAt) / 400);
+      const grow = 1 - Math.pow(1 - growP, 3);
+
+      // Tique de "polvo" en el aterrizaje (~300 ms).
+      if (settle?.landed && settle.landedAt !== null && now - settle.landedAt < 300) {
+        ctx.strokeStyle = THEME.textMuted;
+        ctx.lineWidth = 1.5;
+        for (const sx of [sxA, sxB]) {
+          for (const dx of [-14, -7, 7, 14]) {
+            ctx.beginPath();
+            ctx.moveTo(sx + dx - 4, gy + 4);
+            ctx.lineTo(sx + dx + 4, gy + 4);
+            ctx.stroke();
+          }
+        }
+      }
+
       for (const [label, x, R] of [
         ['A', xA, r.RA],
         ['B', xB, r.RB],
@@ -612,11 +686,72 @@ export function drawScene(ctx: CanvasRenderingContext2D, size: ViewSize, cam: Ca
         const sx = toS(x, 0).x;
         const len = R * k * grow;
         if (len > 4) arrow(ctx, sx, gy, sx, gy - len, THEME.stable);
-        tag(ctx, `R_${label} = ${fmtFixed(R)} N`, sx, gy - len - 12, THEME.stable);
+        if (grow > 0.5) tag(ctx, `R_${label} = ${fmtFixed(R)} N`, sx, gy - len - 12, THEME.stable);
       }
-      arrow(ctx, c.x, c.y, c.x, c.y + r.weight * k * grow, THEME.danger);
-      tag(ctx, `W = M·g = ${fmtFixed(r.weight)} N`, c.x + 10, c.y + r.weight * k * grow - 4, THEME.danger, 'left');
+      arrow(ctx, c.x, c.y, c.x, c.y + r.weight * k, THEME.danger);
+      tag(ctx, `W = M·g = ${fmtFixed(r.weight)} N`, c.x + 10, c.y + r.weight * k - 4, THEME.danger, 'left');
       drawForceScale(ctx, size, k);
+
+      // Equilibrio de momentos respecto al apoyo en x_min (una vez apoyado).
+      if (settle === null || settle.landed) {
+        const xMin = a.base.minLabel === 'A' ? xA : xB;
+        const pMin = toS(xMin, 0);
+        const tauW = (r.weight * (xCM - xMin)) / 100;
+        const tauR = (r.Rmax * r.L) / 100;
+        const drawArcArrow = (radius: number, sweepRad: number, clockwise: boolean, color: string) => {
+          const a0 = -Math.PI / 2;
+          const a1 = clockwise ? a0 + sweepRad : a0 - sweepRad;
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(pMin.x, pMin.y, radius, a0, a1, !clockwise);
+          ctx.stroke();
+          const ex = pMin.x + radius * Math.cos(a1);
+          const ey = pMin.y + radius * Math.sin(a1);
+          const tang = a1 + (clockwise ? Math.PI / 2 : -Math.PI / 2);
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.moveTo(ex, ey);
+          ctx.lineTo(ex - 8 * Math.cos(tang - 0.35), ey - 8 * Math.sin(tang - 0.35));
+          ctx.lineTo(ex - 8 * Math.cos(tang + 0.35), ey - 8 * Math.sin(tang + 0.35));
+          ctx.closePath();
+          ctx.fill();
+        };
+        drawArcArrow(34, (260 * Math.PI) / 180, true, THEME.danger);
+        drawArcArrow(46, (260 * Math.PI) / 180, false, THEME.stable);
+        tag(ctx, `τ_W = −${fmtFixed(tauW, 2)} N·m`, pMin.x - 30, pMin.y - 60, THEME.danger, 'right');
+        tag(ctx, `τ_R = +${fmtFixed(tauR, 2)} N·m`, pMin.x + 30, pMin.y - 60, THEME.stable, 'left');
+        const sxT = pMin.x;
+        ctx.strokeStyle = THEME.stable;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(sxT - 34, pMin.y + 66);
+        ctx.lineTo(sxT - 30, pMin.y + 70);
+        ctx.lineTo(sxT - 22, pMin.y + 62);
+        ctx.stroke();
+        tag(ctx, `Στ = ${fmtFixed(tauR - tauW, 2)} N·m`, pMin.x - 26, pMin.y + 68, THEME.stable, 'left');
+
+        // Brazos de palanca sobre el suelo (respetan el toggle de cotas).
+        if (scene.showDims !== false) {
+          dimension(ctx, pMin.x, c.x, gy - 8, gy - 8, gy - 22, `d_W = ${fmtFixed(Math.abs(xCM - xMin))} cm`, THEME.warn);
+          const xMax = a.base.minLabel === 'A' ? xB : xA;
+          dimension(ctx, pMin.x, toS(xMax, 0).x, gy - 8, gy - 8, gy - 38, `L = ${fmtFixed(r.L)} cm`, THEME.stable);
+        }
+      }
+    }
+
+    // Pesos por figura w_i = m_i·g (flechas finas) en ambos modos de simulación.
+    if ((sim.mode === 'forces' || tipping) && a.totalMass > 0) {
+      const k = FORCE_PX / (a.totalMass * a.g);
+      for (const b of a.shapes) {
+        const wp = rot({ x: b.cx, y: b.cy + liftCm });
+        const s = toS(wp.x, wp.y);
+        const len = b.m * a.g * k;
+        if (len <= 6) continue;
+        arrow(ctx, s.x, s.y, s.x, s.y + len, THEME.danger, 1.2, 6);
+        if (len >= 18) tag(ctx, 'w_i', s.x + 6, s.y + len / 2, THEME.danger, 'left');
+        if (b.id === scene.selectedId) tag(ctx, `w_i = ${fmtFixed(b.m * a.g, 2)} N`, s.x + 8, s.y + len + 12, THEME.danger, 'left');
+      }
     }
 
     drawCentroidMarker(ctx, g);

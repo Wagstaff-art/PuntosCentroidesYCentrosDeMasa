@@ -31,6 +31,12 @@ export const CanvasLegend = memo(function CanvasLegend({ analysis }: { analysis:
         </svg>
         <span>Plomada del CM hasta y = 0</span>
       </div>
+      <div className="flex items-center gap-2">
+        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+          <path d="M9 2v11m0 0-3-3m3 3 3-3" stroke="#EF4444" strokeWidth="1.4" />
+        </svg>
+        <span>w_i = m_i·g (peso de cada figura)</span>
+      </div>
       <div className="space-y-0.5 pt-0.5">
         <div
           className="h-2 rounded-sm border border-lab-border"

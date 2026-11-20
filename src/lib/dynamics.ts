@@ -57,6 +57,8 @@ export interface SimSnapshot {
   state: TipState | null;
   /** performance.now() al iniciar el modo 'forces' (anima el crecimiento de las flechas). */
   startedAt?: number;
+  /** Caída de asentamiento por gravedad en modo 'forces': t simulado en s, altura restante en cm. */
+  settle?: { t: number; offsetCm: number; landed: boolean; landedAt: number | null };
 }
 
 export const IDLE_SIM: SimSnapshot = { mode: 'idle', setup: null, state: null };
@@ -161,4 +163,43 @@ export function rotateAbout(p: { x: number; y: number }, px: number, py: number,
   const dx = p.x - px;
   const dy = p.y - py;
   return { x: px + dx * c - dy * s, y: py + dx * s + dy * c };
+}
+
+/**
+ * Momento del peso respecto al pivote P: τ = −M·g·(r_x cosθ − r_y sinθ), en N·m.
+ * Signo positivo = antihorario (misma convención que angularAcceleration × I_P).
+ */
+export function torqueAboutPivot(theta: number, s: TipSetup): number {
+  return -s.mass * s.g * (s.rx * Math.cos(theta) - s.ry * Math.sin(theta));
+}
+
+/** Brazo de palanca de W respecto a P: |r_x cosθ − r_y sinθ|, en m. */
+export function leverArm(theta: number, s: TipSetup): number {
+  return Math.abs(s.rx * Math.cos(theta) - s.ry * Math.sin(theta));
+}
+
+/** Máximo |τ(θ)| sobre [0, endAngle] (para escalar el arco de torque dibujado). */
+export function maxTorque(s: TipSetup): number {
+  let m = 0;
+  const steps = 60;
+  for (let i = 0; i <= steps; i++) {
+    const t = (s.endAngle * i) / steps;
+    const v = Math.abs(torqueAboutPivot(t, s));
+    if (v > m) m = v;
+  }
+  return m;
+}
+
+/** Altura de caída inicial (cm) para el efecto de asentamiento por gravedad. */
+export const SETTLE_HEIGHT_CM = 8;
+
+/**
+ * Caída libre y(t) = h0 − ½·g·t² con h0 = SETTLE_HEIGHT_CM.
+ * Devuelve la altura restante en cm (≥ 0) y si ya aterrizó.
+ */
+export function settleOffset(t: number, g: number): { offsetCm: number; landed: boolean } {
+  const h0 = SETTLE_HEIGHT_CM / 100;
+  const y = h0 - 0.5 * g * t * t;
+  if (y <= 1e-9) return { offsetCm: 0, landed: true };
+  return { offsetCm: y * 100, landed: false };
 }

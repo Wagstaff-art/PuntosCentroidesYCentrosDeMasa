@@ -254,7 +254,12 @@ export function Viewport() {
     let raf = 0;
     const tick = () => {
       const s = simStore.getSnapshot();
-      if (s.mode === 'forces' && s.startedAt !== undefined && performance.now() - s.startedAt < 500) {
+      const anim =
+        s.mode === 'forces' &&
+        (s.settle
+          ? !s.settle.landed || (s.settle.landedAt !== null && performance.now() - s.settle.landedAt < 600)
+          : s.startedAt !== undefined && performance.now() - s.startedAt < 500);
+      if (anim) {
         requestDraw();
         raf = requestAnimationFrame(tick);
         return;

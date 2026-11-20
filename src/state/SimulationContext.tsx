@@ -1,9 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   IDLE_SIM,
+  SETTLE_HEIGHT_CM,
   advanceTip,
   createTipSetup,
   initialTipState,
+  settleOffset,
   type SimMode,
   type SimSnapshot,
   type TipSetup,
@@ -103,9 +105,34 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
     cancel();
     if (analysis.status === 'sin_masa') return;
     if (analysis.status === 'estable') {
-      store.set({ mode: 'forces', setup: null, state: null, startedAt: performance.now() });
+      let t = 0;
+      let landedAt: number | null = null;
+      let last = 0;
+      const loop = (now: number) => {
+        const elapsed = last === 0 ? 0 : (now - last) / 1000;
+        last = now;
+        t += elapsed * speedRef.current;
+        const s = settleOffset(t, analysis.g);
+        if (s.landed && landedAt === null) landedAt = performance.now();
+        store.set({
+          mode: 'forces',
+          setup: null,
+          state: null,
+          startedAt: performance.now(),
+          settle: { t, offsetCm: s.offsetCm, landed: s.landed, landedAt },
+        });
+        rafRef.current = s.landed && landedAt !== null && performance.now() - landedAt > 450 ? null : requestAnimationFrame(loop);
+      };
+      store.set({
+        mode: 'forces',
+        setup: null,
+        state: null,
+        startedAt: performance.now(),
+        settle: { t: 0, offsetCm: SETTLE_HEIGHT_CM, landed: false, landedAt: null },
+      });
       setMode('forces');
       toast('Sistema estable: no hay vuelco; se muestran las reacciones.');
+      rafRef.current = requestAnimationFrame(loop);
       return;
     }
     const setup = createTipSetup(shapes, analysis);

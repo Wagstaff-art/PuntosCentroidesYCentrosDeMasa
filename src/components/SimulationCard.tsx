@@ -2,7 +2,7 @@ import { memo, useSyncExternalStore } from 'react';
 import { AlertOctagon, AlertTriangle, Info, Pause, RotateCcw, RotateCw, Scale } from 'lucide-react';
 import { useSimulation, type SimSpeed } from '../state/SimulationContext';
 import { useAnalysis } from '../state/AnalysisContext';
-import type { TipSetup } from '../lib/dynamics';
+import { angularAcceleration, torqueAboutPivot, type TipSetup } from '../lib/dynamics';
 import { fmtFixed, fmtTrim, texNum } from '../lib/format';
 import { Tex } from './Tex';
 
@@ -69,6 +69,10 @@ export function SimulationCard() {
 
   if (snap.mode === 'forces') {
     const r = analysis.reactions;
+    const settle = snap.settle ?? null;
+    const falling = settle !== null && !settle.landed;
+    const tauW = r && analysis.base.minLabel ? (r.weight * ((analysis.centerOfMass.x.value ?? 0) - (analysis.base.minLabel === 'A' ? analysis.supports.xA : analysis.supports.xB))) / 100 : null;
+    const tauR = r ? (r.Rmax * r.L) / 100 : null;
     return (
       <section aria-labelledby="titulo-simulacion" className="space-y-2">
         <h2 id="titulo-simulacion" className="section-title">
@@ -78,6 +82,19 @@ export function SimulationCard() {
           <p className="flex items-center gap-2 rounded-md border border-lab-stable/50 bg-lab-stable/10 px-3 py-2 text-sm font-bold text-lab-stable">
             <Scale size={16} aria-hidden="true" />
             EQUILIBRIO ESTÁTICO
+          </p>
+          <p className="num flex items-center gap-2 text-xs text-slate-300" aria-live="polite">
+            {falling ? (
+              <>
+                <RotateCw size={12} className="animate-spin text-lab-warn" aria-hidden="true" />
+                Cayendo por gravedad… t = {fmtFixed(settle?.t ?? 0, 2)} s · v = {fmtFixed(analysis.g * (settle?.t ?? 0), 2)} m/s
+              </>
+            ) : (
+              <>
+                <Scale size={12} className="text-lab-stable" aria-hidden="true" />
+                Apoyado: equilibrio estático
+              </>
+            )}
           </p>
           <p className="text-xs leading-relaxed text-slate-300">
             El centro de masa cae dentro de la base: los apoyos generan reacciones verticales que equilibran el peso y el
@@ -93,6 +110,13 @@ export function SimulationCard() {
               <Value label="R_A" value={`${fmtFixed(r.RA)} N`} />
               <Value label="R_B" value={`${fmtFixed(r.RB)} N`} />
               <Value label="R_A + R_B − W" value={`${fmtFixed(r.sumFy)} N`} />
+              {tauW !== null && tauR !== null && (
+                <>
+                  <Value label="τ_W (horario)" value={`−${fmtFixed(tauW, 2)} N·m`} />
+                  <Value label="τ_R (antihor.)" value={`+${fmtFixed(tauR, 2)} N·m`} />
+                  <Value label="Στ respecto al apoyo" value={`${fmtFixed(tauR - tauW, 2)} N·m`} />
+                </>
+              )}
             </dl>
           )}
         </div>
@@ -128,6 +152,8 @@ export function SimulationCard() {
           <Value label="ω (velocidad angular)" value={`${fmtFixed(state.omega, 3)} rad/s`} />
           <Value label="t (tiempo)" value={`${fmtFixed(state.t, 3)} s`} />
           <Value label="Sentido" value={setup.direction < 0 ? 'horario' : 'antihorario'} />
+          <Value label="α (acel. angular)" value={`${fmtFixed(angularAcceleration(state.theta, setup), 2)} rad/s²`} />
+          <Value label="τ_P (momento)" value={`${fmtFixed(torqueAboutPivot(state.theta, setup), 2)} N·m`} />
         </dl>
         <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-slate-400" aria-live="polite">
           <Pause size={12} className="mt-0.5 shrink-0" aria-hidden="true" />

@@ -3,11 +3,15 @@ import { PRESETS, presetToSnapshot, type Preset } from '../data/presets';
 import { analyzeModel } from './physics';
 import {
   SIM_DT,
+  SETTLE_HEIGHT_CM,
   advanceTip,
   angularAcceleration,
   createTipSetup,
   initialTipState,
+  leverArm,
   rotateAbout,
+  settleOffset,
+  torqueAboutPivot,
   type TipSetup,
   type TipState,
 } from './dynamics';
@@ -100,5 +104,41 @@ describe('vuelco de cuerpo rígido', () => {
     const end = runToEnd(setup, 1 / 60);
     expect(end.finished).toBe(true);
     expect(Number.isFinite(end.theta)).toBe(true);
+  });
+});
+
+describe('efectos de gravedad y torque', () => {
+  it('torqueAboutPivot(θ) = α(θ)·I_P y en θ=0 es −M·g·r_x', () => {
+    const { setup } = setupFor('trampa-densidad');
+    for (const th of [0, -0.3]) {
+      expect(torqueAboutPivot(th, setup)).toBeCloseTo(angularAcceleration(th, setup) * setup.inertia, 10);
+    }
+    expect(torqueAboutPivot(0, setup)).toBeCloseTo(-setup.mass * setup.g * setup.rx, 10);
+  });
+
+  it('leverArm es la distancia horizontal |r_x cosθ − r_y sinθ|', () => {
+    const { setup } = setupFor('trampa-densidad');
+    expect(leverArm(0, setup)).toBeCloseTo(Math.abs(setup.rx), 10);
+    const th = -0.2;
+    expect(leverArm(th, setup)).toBeCloseTo(
+      Math.abs(setup.rx * Math.cos(th) - setup.ry * Math.sin(th)),
+      12,
+    );
+  });
+
+  it('settleOffset: caída libre desde 8 cm, aterriza en sqrt(2·0.08/g)', () => {
+    const g = 9.81;
+    const tL = Math.sqrt((2 * 0.08) / g);
+    expect(settleOffset(0, g).offsetCm).toBeCloseTo(SETTLE_HEIGHT_CM, 10);
+    expect(settleOffset(0, g).landed).toBe(false);
+    const atLand = settleOffset(tL, g);
+    expect(atLand.offsetCm).toBe(0);
+    expect(atLand.landed).toBe(true);
+    let prev = SETTLE_HEIGHT_CM;
+    for (let t = 0.01; t < tL; t += 0.01) {
+      const { offsetCm } = settleOffset(t, g);
+      expect(offsetCm).toBeLessThan(prev);
+      prev = offsetCm;
+    }
   });
 });
