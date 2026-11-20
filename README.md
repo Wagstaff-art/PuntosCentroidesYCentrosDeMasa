@@ -15,7 +15,7 @@ ni ninguna dependencia en el equipo anfitrión.
 | Acción | Comando |
 | --- | --- |
 | Servidor de desarrollo con HMR en http://localhost:5173 | `docker compose up` |
-| Build de producción (genera `dist/` con `index.html` en la raíz) | `docker compose run --rm app npm run build` |
+| Build de producción (genera `docs/` con `index.html` dentro, listo para GitHub Pages) | `docker compose run --rm app npm run build` |
 | Tests (Vitest) | `docker compose run --rm app npm run test` |
 | Solo verificación de tipos | `docker compose run --rm app npm run typecheck` |
 | Regenerar `package-lock.json` | `docker compose run --rm app npm install` |
@@ -24,7 +24,7 @@ ni ninguna dependencia en el equipo anfitrión.
   `server.watch.usePolling` en `vite.config.ts`.
 - Si cambias `package.json`, reconstruye la imagen y el volumen de `node_modules`: `docker compose up --build -V`.
 - El build usa `base: './'`: todos los recursos (JS, CSS, fuentes Inter / JetBrains Mono y fuentes de KaTeX) se
-  referencian con rutas relativas y van empaquetados, sin CDNs. `dist/` funciona servido bajo cualquier subruta.
+  referencian con rutas relativas y van empaquetados, sin CDNs. `docs/` funciona servido bajo cualquier subruta.
 
 ## Uso
 
@@ -41,7 +41,9 @@ ni ninguna dependencia en el equipo anfitrión.
 
 ```
 ├── Dockerfile, docker-compose.yml     Entorno de desarrollo y build sin dependencias locales
-├── .github/workflows/deploy.yml       Despliegue a GitHub Pages
+├── .github/workflows/ci.yml           Tests y build en cada push (no despliega)
+├── docs/                              Build de producción que publica GitHub Pages (generado, no editar)
+├── bitacora/bitacora.tex              Bitácora de desarrollo (LuaLaTeX)
 ├── vite.config.ts                     base './', polling para HMR, configuración de Vitest
 └── src/
     ├── lib/
@@ -114,13 +116,25 @@ R_min = W·(xmax − x̄_CM)/L, R_max = W·(x̄_CM − xmin)/L. El panel comprue
 
 ## Despliegue en GitHub Pages
 
-1. Genera el `package-lock.json` con Docker (el workflow usa `npm ci`, que lo exige) y súbelo al repositorio:
+El sitio se publica desde la carpeta `docs/` de la rama `main`, que contiene el build de producción
+(`docs/index.html` + `docs/assets/`). El `index.html` de la raíz del proyecto **no** es la página publicable:
+es la plantilla de Vite que carga `/src/main.tsx` y solo funciona con el servidor de desarrollo.
+
+1. Genera el build (sobrescribe `docs/` por completo):
    ```bash
-   docker compose run --rm app npm install
-   git add package-lock.json
-   git commit -m "Añadir package-lock.json"
+   docker compose run --rm app npm run build
    ```
-2. En GitHub: **Settings → Pages → Build and deployment → Source: «GitHub Actions»**.
-3. Haz push a `main`. El workflow `.github/workflows/deploy.yml` ejecuta `npm ci`, los tests, `npm run build` y
-   publica `dist/` con `actions/upload-pages-artifact` y `actions/deploy-pages`. Como el build usa rutas relativas,
-   funciona en `https://<usuario>.github.io/<repositorio>/` sin configuración adicional.
+2. Sube los cambios, incluida la carpeta `docs/`:
+   ```bash
+   git add docs package-lock.json
+   git commit -m "Actualizar build de GitHub Pages"
+   git push
+   ```
+3. En GitHub, una sola vez: **Settings → Pages → Build and deployment → Source: «Deploy from a branch»**,
+   rama `main`, carpeta **`/docs`** → *Save*.
+
+Repite los pasos 1 y 2 cada vez que cambies el código: Pages solo publica lo que está en `docs/`. Como el build
+usa rutas relativas (`base: './'`), funciona en `https://<usuario>.github.io/<repositorio>/`. El archivo
+`docs/.nojekyll` (copiado desde `public/`) evita que GitHub procese el sitio con Jekyll.
+
+El workflow `.github/workflows/ci.yml` ejecuta los tests y el build en cada push como comprobación; no despliega.

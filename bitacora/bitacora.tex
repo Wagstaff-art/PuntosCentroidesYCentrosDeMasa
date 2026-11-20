@@ -1,0 +1,523 @@
+% =====================================================================
+%  Bitácora de desarrollo — Laboratorio Virtual de Estabilidad
+%  Compilar con LuaLaTeX (o XeLaTeX):  lualatex bitacora.tex  (dos veces)
+%  En Overleaf: Menú → Compiler → LuaLaTeX
+% =====================================================================
+\documentclass[11pt,a4paper]{article}
+
+\usepackage{fontspec}
+\setmainfont{DejaVuSerif}[Extension=.ttf, BoldFont=*-Bold, ItalicFont=*-Italic, BoldItalicFont=*-BoldItalic, Scale=0.92]
+\setsansfont{DejaVuSans}[Extension=.ttf, BoldFont=*-Bold, ItalicFont=*-Oblique, BoldItalicFont=*-BoldOblique]
+\setmonofont{DejaVuSansMono}[Extension=.ttf, BoldFont=*-Bold, ItalicFont=*-Oblique, BoldItalicFont=*-BoldOblique, Scale=0.86]
+\usepackage[spanish,es-noshorthands,es-tabla]{babel}
+\usepackage[margin=2.3cm,headheight=14pt]{geometry}
+\usepackage{amsmath}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{fvextra}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage[hidelinks]{hyperref}
+
+\definecolor{acento}{HTML}{0284C7}
+\definecolor{estable}{HTML}{059669}
+\definecolor{vuelco}{HTML}{DC2626}
+\definecolor{aviso}{HTML}{D97706}
+\definecolor{gris}{HTML}{475569}
+\definecolor{fondo}{HTML}{F1F5F9}
+
+\titleformat{\section}{\Large\bfseries\sffamily\color{acento}}{\thesection}{0.8em}{}
+\titleformat{\subsection}{\large\bfseries\sffamily}{\thesubsection}{0.8em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\sffamily}{\thesubsubsection}{0.8em}{}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\sffamily\color{gris} Bitácora · Laboratorio Virtual de Estabilidad}
+\fancyhead[R]{\small\sffamily\color{gris} Sara · Hugo · Daniela}
+\fancyfoot[C]{\small\sffamily\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\setlist{itemsep=2pt,topsep=4pt}
+
+% Bloque para citar literalmente las instrucciones (prompts)
+\DefineVerbatimEnvironment{Prompt}{Verbatim}{breaklines, breakanywhere, fontsize=\footnotesize, frame=single, framesep=3mm, rulecolor=\color{acento}, numbers=none}
+
+\newcommand{\miembro}[1]{\textbf{\sffamily #1}}
+\newcommand{\ok}{\textcolor{estable}{\textbf{\sffamily ✔}}}
+
+\begin{document}
+
+% ---------------------------------------------------------------------
+\begin{titlepage}
+  \centering
+  \vspace*{2.5cm}
+  {\sffamily\color{acento}\Large Cálculo Integral · Aplicaciones de la integral\par}
+  \vspace{1.2cm}
+  {\sffamily\bfseries\Huge Bitácora de desarrollo\par}
+  \vspace{0.4cm}
+  {\sffamily\LARGE Laboratorio Virtual de Estabilidad\par}
+  {\sffamily\large\color{gris} CAD \& Mass Properties — centroides y centros de masa\par}
+  \vspace{2.2cm}
+  \begin{tabular}{l}
+    \toprule
+    \textbf{Integrantes}\\
+    \midrule
+    Sara\\
+    Hugo\\
+    Daniela\\
+    \bottomrule
+  \end{tabular}
+  \vfill
+  {\large 20 de noviembre de 2026\par}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% ---------------------------------------------------------------------
+\section{Objetivo del proyecto}
+
+Construir una aplicación web de nivel profesional que sirva como laboratorio virtual para el tema
+\emph{aplicaciones de la integral: centroides y centros de masa}. La aplicación permite:
+
+\begin{itemize}
+  \item modelar cuerpos planos formados por figuras (rectángulos, triángulos, círculos, semicírculos,
+        cuartos de círculo, trapecios, polígonos libres y regiones definidas por ecuaciones);
+  \item calcular el centroide geométrico $(\bar x_G,\bar y_G)$ y el centro de masa $(\bar x_{CM},\bar y_{CM})$
+        mostrando el desarrollo paso a paso (integral $\rightarrow$ sumatoria $\rightarrow$ sustitución numérica);
+  \item evaluar la estabilidad del cuerpo sobre dos apoyos A y B, calcular las reacciones y
+        comprobar $\sum F_y = 0$ y $\sum\tau = 0$;
+  \item simular el vuelco como cuerpo rígido cuando el centro de masa cae fuera de la base;
+  \item exportar el lienzo en PNG y un reporte técnico imprimible.
+\end{itemize}
+
+% ---------------------------------------------------------------------
+\section{Metodología de trabajo}
+
+El desarrollo se realizó con un \textbf{agente de programación con inteligencia artificial} (Devin)
+dirigido por el equipo mediante instrucciones escritas (\emph{prompts}). El código fuente fue generado
+por el agente a partir de esas instrucciones; el trabajo del equipo consistió en:
+
+\begin{enumerate}
+  \item \textbf{Especificar}: redactar el prompt inicial con los requisitos técnicos, las convenciones
+        físicas, los datos de los presets con sus resultados esperados y los criterios de aceptación.
+  \item \textbf{Dirigir por fases}: autorizar cada fase («continúa») sólo después de revisarla.
+  \item \textbf{Verificar}: comprobar a mano los resultados de los presets, revisar la interfaz y
+        probar los casos borde.
+  \item \textbf{Corregir}: detectar defectos o carencias y pedir correcciones concretas.
+  \item \textbf{Documentar}: registrar en esta bitácora las instrucciones y las evidencias.
+\end{enumerate}
+
+Las instrucciones se citan literalmente en la sección~\ref{sec:evidencias} como evidencia del proceso.
+
+% ---------------------------------------------------------------------
+\section{Distribución del trabajo}
+
+El trabajo se repartió en tres áreas de responsabilidad equivalentes. Cada integrante fue responsable
+de especificar, revisar y validar los entregables de su área, y los tres participaron en la redacción del
+prompt inicial y en la revisión cruzada de cada fase.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{L{2.2cm}YYY}
+\toprule
+ & \miembro{Sara} & \miembro{Hugo} & \miembro{Daniela}\\
+\midrule
+Área & Infraestructura, interfaz general y documentación & Motor matemático y física & Lienzo CAD e interacción\\
+\midrule
+Fase 1 & Docker, Vite, Tailwind, GitHub Actions; tema visual & Convenciones de unidades y rangos válidos; tests del modelo & Esqueleto de paneles e inputs con sliders\\
+Fase 2 & Selector de presets en la barra superior & \texttt{physics.ts}, tests Vitest, datos de presets & Panel de análisis con KaTeX (desarrollo paso a paso)\\
+Fase 3 & Revisión de rendimiento y accesibilidad & Cámara, cuadrícula adaptativa y sombreado por densidad (funciones puras + tests) & Lienzo: bloques, apoyos, arrastre, marcadores y plomada\\
+Fase 4 & Exportación PNG, reporte técnico y README & Simulación del vuelco (dinámica de cuerpo rígido) & Tarjetas de presets, flechas de fuerzas en el lienzo\\
+Rediseño & Rediseño \emph{enterprise}: barra de título, cinta de herramientas, barra de estado & Motor de figuras geométricas y analizador de ecuaciones & Paleta con arrastrar y soltar, diálogos de ecuación y polígono, inspector\\
+Correcciones & Bitácora de desarrollo & Diagnóstico del error de simulación & Verificación de la corrección en el navegador\\
+\midrule
+Tareas & 6 & 6 & 6\\
+Participación & 33,3\,\% & 33,3\,\% & 33,3\,\%\\
+\bottomrule
+\end{tabularx}
+\caption{Reparto uniforme de responsabilidades por fase.}
+\end{table}
+
+% ---------------------------------------------------------------------
+\section{Cronología de sesiones}
+
+\begin{longtable}{L{1.2cm}L{3.3cm}L{2.2cm}L{8.0cm}}
+\toprule
+\textbf{Sesión} & \textbf{Instrucción} & \textbf{Responsable} & \textbf{Resultado y evidencia}\\
+\midrule
+\endhead
+1 & Prompt inicial (§\ref{sec:prompt-inicial}) $\rightarrow$ Fase 1 & Sara (los tres redactan) &
+Infraestructura Docker + Vite + Tailwind + GitHub Actions y esqueleto de la interfaz. \texttt{npm run test}: 8/8. Build con rutas relativas y fuentes empaquetadas; HMR verificado en Docker.\\
+2 & Corrección 1: «aún está lejos de ser un laboratorio…» $\rightarrow$ Fase 2 & Hugo &
+Motor matemático puro, 4 presets como datos y panel KaTeX. Tests: 30/30. Los 4 presets reproducen los resultados esperados.\\
+3 & Corrección 2: «continúa» $\rightarrow$ Fase 3 & Daniela &
+Lienzo CAD con zoom centrado en el cursor, pan, snap, arrastre de bloques y apoyos, marcadores CG/CM y plomada. Tests: 38/38. Prueba en navegador sin errores.\\
+4 & Corrección 3: «continúa» $\rightarrow$ Fase 4 & Sara y Hugo &
+Simulación de gravedad, tarjetas de presets, exportación PNG, reporte imprimible y README. Tests: 46/46. Preset 4 vuelca en torno a B hasta $\theta=-26{,}57^\circ$.\\
+5 & Corrección 4: «continúa hasta terminar» & Daniela &
+Entrega de los archivos restantes de la Fase 4 y cierre de los 8 criterios de aceptación.\\
+6 & Corrección 5: estética \emph{enterprise}, figuras por ecuaciones y arrastrar y soltar & Los tres &
+Generalización del modelo a 8 tipos de figura, analizador de expresiones, regiones $g(x)\le y\le f(x)$ integradas con Simpson, rediseño completo de la interfaz. Tests: 88/88 y luego 103/103.\\
+7 & Corrección 6: «le doy a simular pero no hace nada» + bitácora & Hugo, Daniela y Sara &
+Diagnóstico de la causa raíz y corrección (ver §\ref{sec:sim}); redacción de esta bitácora.\\
+\bottomrule
+\end{longtable}
+
+% ---------------------------------------------------------------------
+\section{Evidencias: instrucciones dadas al agente}\label{sec:evidencias}
+
+\subsection{Prompt inicial}\label{sec:prompt-inicial}
+
+Redactado en conjunto por Sara, Hugo y Daniela. Se reproduce literalmente.
+
+\begin{Prompt}
+Desarrolla lo propuesto en el promt que te envie# ROL
+Actúa como Arquitecto Frontend Principal e Ingeniero de Simulación Estructural. Construye desde cero **"Laboratorio Virtual de Estabilidad (CAD & Mass Properties)"**, una app web de nivel profesional para un curso universitario de Cálculo Integral (aplicaciones de la integral: centroides y centros de masa). Estética y precisión inspiradas en SkyCiv Structural 3D, Autodesk Fusion y Algodoo. Idioma de toda la interfaz y de las explicaciones: español.
+
+# REGLAS DE ENTREGA (obligatorias)
+- Entrega en 4 FASES. Al terminar cada fase, detente y espera mi "continúa". No adelantes fases.
+- Dentro de cada fase: archivos completos, sin "...", sin "resto igual", sin placeholders ni TODOs. Si una fase no cabe en una respuesta, divídela y avísame antes de truncar nada.
+- Cada archivo va en su propio bloque de código, con su ruta como título.
+- Al final de cada fase incluye: (a) lista de archivos creados/modificados, (b) comandos exactos para verificarla, (c) qué criterios de aceptación de la sección 11 ya se cumplen.
+
+Fases:
+1. Infraestructura (Docker, Vite, Tailwind, GitHub Actions) + esqueleto de UI con el tema aplicado.
+2. Motor matemático puro (`src/lib/physics.ts`) + tests Vitest + panel de análisis con KaTeX + presets como datos.
+3. Lienzo CAD (cuadrícula, ejes, zoom/pan, bloques, apoyos, arrastre, marcadores, plomada).
+4. Simulación de gravedad, tarjetas de presets, exportación y README.
+
+# 1. CONVENCIONES (no improvises, úsalas tal cual)
+- Unidades: longitud en cm, masa en kg, g = 9.81 m/s². Convierte a metros solo dentro del cálculo dinámico.
+- Cada bloque: `{ id, name, b, h, m, x, y }` donde **(x, y) es la esquina inferior izquierda**. Su centro es `(x + b/2, y + h/2)`.
+- Eje Y positivo hacia arriba. Los apoyos A y B están en y = 0, con `xA` y `xB` editables.
+- Los bloques pueden apilarse y tocarse. Si dos bloques se **solapan** (área de intersección > 0), muestra una advertencia no bloqueante en el inspector y resáltalos con borde discontinuo ámbar. Los bloques que flotan sin contacto se permiten, pero genera un aviso.
+- Rangos válidos: b, h ∈ [1, 200] cm; m ∈ [0.1, 500] kg; x, y ∈ [-300, 300] cm. Valida y limita (clamp) en inputs y al arrastrar.
+- Densidad: ρᵢ = mᵢ/(bᵢ·hᵢ) en kg/cm². Para el color usa la normalización (ρ − ρmin)/(ρmax − ρmin) → opacidad de relleno de 0.25 a 0.95 sobre el tono cian del bloque, más un patrón de rayado diagonal más denso a mayor ρ. Si todas las ρ son iguales, usa opacidad 0.6 y sin rayado.
+- Casos borde del motor: M = 0 o A = 0 → devuelve estado `"sin_masa"` (no NaN) y la UI muestra un aviso; `xA = xB` → base de ancho 0 → INESTABLE; si `xA > xB`, ordena internamente (xmin, xmax) pero conserva las etiquetas A/B visuales.
+
+# 2. INFRAESTRUCTURA DOCKER Y GITHUB PAGES
+- `Dockerfile` con `node:20-alpine`, `WORKDIR /app`, copia `package*.json`, `npm install`, copia el resto, `EXPOSE 5173`, `CMD ["npm","run","dev","--","--host","0.0.0.0","--port","5173"]`.
+- `docker-compose.yml`: servicio `app`, `build: .`, puerto `5173:5173`, volumen bind `.:/app` y volumen anónimo `/app/node_modules`, variable `CHOKIDAR_USEPOLLING=true` (para que el HMR funcione en Windows/macOS), y `vite.config.ts` con `server.watch.usePolling` coherente.
+- Debe funcionar sin instalar nada en el anfitrión:
+  - `docker compose up` → previsualización en http://localhost:5173
+  - `docker compose run --rm app npm run build` → genera `dist/` con `index.html` en la raíz.
+  - `docker compose run --rm app npm run test` → corre Vitest.
+- `vite.config.ts`: `base: './'`. Todos los assets (incluidas las fuentes de KaTeX) deben salir con rutas relativas. Prohíbe CDNs externas: Inter y JetBrains Mono se empaquetan con `@fontsource/inter` y `@fontsource/jetbrains-mono`.
+- `.github/workflows/deploy.yml`: en push a `main`, `actions/checkout`, `actions/setup-node` (20), `npm ci`, `npm run build`, `actions/upload-pages-artifact` (path `dist`) y `actions/deploy-pages`, con permisos `pages: write` e `id-token: write`. Explica en el README que primero hay que generar y commitear `package-lock.json` usando Docker, y activar Pages → "GitHub Actions" en el repositorio.
+
+# 3. STACK
+React 18 + TypeScript (strict) + Vite + Tailwind CSS + `lucide-react` + `katex` (importa `katex/dist/katex.min.css` en el bundle; renderiza con `katex.renderToString` y `throwOnError:false`) + Vitest. Sin otras librerías de estado o de canvas: estado con `useReducer` + Context, canvas con la API 2D nativa.
+
+# 4. ESTÉTICA Y LAYOUT
+- Colores: fondo `#0B0F19`, paneles `#111827`, bordes `#1E293B`, acento cian `#38BDF8`, estable `#10B981`, vuelco `#EF4444`, advertencia `#F59E0B`. Todos definidos como variables CSS/Tailwind.
+- Tipografía: Inter para UI; JetBrains Mono con `font-variant-numeric: tabular-nums` para coordenadas, cotas y cálculos.
+- Layout de workstation a pantalla completa: barra superior + panel izquierdo (320 px) + lienzo flexible + panel derecho (380 px). Paneles con scroll interno. En pantallas < 1024 px, paneles laterales colapsables en drawers.
+- Barra superior: título, selector de presets, "Simular Gravedad", "Reiniciar", interruptor "Snap to Grid" (paso de 1 cm; con Shift se desactiva temporalmente), Zoom +/−, "Centrar plano", "Exportar".
+- Panel izquierdo: lista de bloques (añadir, duplicar, eliminar, seleccionar; el activo resaltado) con inputs numéricos + sliders para b, h, m, x, y; sección de apoyos A y B (inputs y sliders de x).
+- Panel derecho: tarjeta de diagnóstico (estado, margen, pivote), tarjeta de reacciones, y desarrollo paso a paso en KaTeX con las sustituciones numéricas.
+- Accesibilidad: inputs con `label`, foco visible, `aria-live="polite"` en el diagnóstico de estabilidad, y el estado nunca depende solo del color (siempre texto + icono).
+
+# 5. LIENZO CAD
+- Canvas 2D nítido: ajusta el tamaño del buffer por `devicePixelRatio` y `ResizeObserver`.
+- Cuadrícula dinámica con subdivisiones adaptativas (1, 5, 10, 50 cm según el zoom), ejes X e Y con reglas graduadas y etiquetas en mono. Zoom con la rueda centrado en el cursor (rango 0.2×–8×); pan con arrastre del botón central o Espacio + arrastre.
+- Bloques: selección por clic, arrastre directo con snap opcional. Apoyos: arrastre solo horizontal. Cursor y hover coherentes.
+- Símbolos: apoyo fijo (triángulo) en A y rodillo (triángulo + círculo) en B, con etiquetas.
+- Base de sustentación: banda resaltada entre xmin y xmax sobre y = 0, con cota de distancia en cm.
+- Marcadores diferenciados: CG (círculo con cruz, cian) y CM (círculo bicolor tipo "diana", ámbar), cada uno con etiqueta y coordenadas. Plomada: línea vertical punteada desde el CM hasta y = 0, con un punto en la proyección y la cota de distancia al apoyo más cercano.
+- Renderiza en un solo `requestAnimationFrame` y solo cuando haya cambios (flag "dirty"); el cálculo del motor es memoizado con `useMemo`.
+
+# 6. MOTOR MATEMÁTICO (`src/lib/physics.ts`, funciones puras, sin dependencias de React)
+Para n bloques:
+- Aᵢ = bᵢ·hᵢ; A = ΣAᵢ; M = Σmᵢ; ρᵢ = mᵢ/Aᵢ.
+- Centroide geométrico: x̄_G = ΣAᵢxᵢ/ΣAᵢ, ȳ_G = ΣAᵢyᵢ/ΣAᵢ, con (xᵢ, yᵢ) los centros de los bloques.
+- Centro de masa: x̄_CM = Σmᵢxᵢ/Σmᵢ, ȳ_CM = Σmᵢyᵢ/Σmᵢ.
+- Estabilidad: xmin = min(xA,xB), xmax = max(xA,xB). Estable si xmin ≤ x̄_CM ≤ xmax. Margen = min(x̄_CM − xmin, xmax − x̄_CM) (negativo si cae fuera). Pivote crítico: A/B correspondiente a xmin si x̄_CM < xmin, o a xmax si x̄_CM > xmax.
+- Reacciones (si es estable, con L = xmax − xmin > 0): R_min = M·g·(xmax − x̄_CM)/L, R_max = M·g·(x̄_CM − xmin)/L; verifica ΣF_y = 0 y Στ = 0 y muéstralo en el panel.
+- Cada función exportada con tipos estrictos y documentada con comentario TSDoc. Devuelve también las "trazas" de cada paso (sumandos con valores) para que el panel pueda mostrar la sustitución numérica sin recalcular.
+- El panel KaTeX muestra, en orden: (1) tabla de bloques con Aᵢ, mᵢ, ρᵢ, centros; (2) fórmula integral → sumatoria → sustitución numérica → resultado, para x̄_G, ȳ_G, x̄_CM, ȳ_CM; (3) criterio de estabilidad con los valores; (4) reacciones. Incluye una nota breve que explique por qué la integral de un bloque homogéneo se reduce a "área × centro".
+
+# 7. SIMULACIÓN DE GRAVEDAD
+- Si es ESTABLE: dibuja los vectores R_A y R_B (flechas verticales hacia arriba, longitud proporcional a la fuerza con escala visible y etiqueta en N) y el peso W = M·g aplicado en el CM.
+- Si es INESTABLE: vuelco como cuerpo rígido alrededor del pivote crítico P:
+  - Momento de inercia respecto al pivote (teorema de ejes paralelos): I_P = Σ [ mᵢ(bᵢ² + hᵢ²)/12 + mᵢ·dᵢ² ], con dᵢ la distancia del centro del bloque a P (usar metros y kg).
+  - Dinámica: con r = CM − P rotado el ángulo θ, α = −M·g·(r_x cosθ − r_y sinθ)/I_P (signo de θ positivo antihorario). Integración semi-implícita de Euler (ω += α·dt; θ += ω·dt) con dt fijo = 1/120 s y acumulador de tiempo, para que sea independiente de los FPS.
+  - Fin de la animación: cuando |θ| alcanza 90° o cuando un vértice de un bloque (excluyendo el pivote y los vértices que ya estaban en y = 0 en el lado del giro) toque el suelo y = 0. En el impacto, impacto inelástico: ω = 0 y estado "VOLCADO".
+  - Dibuja todos los bloques, el CM y la plomada rotados con la misma transformación; la UI muestra θ, ω y t en vivo en el panel. "Reiniciar" restaura el estado inicial al instante. Mientras la simulación corre, la edición queda deshabilitada.
+
+# 8. PRESETS (datos exactos, en `src/data/presets.ts`)
+Cada preset: bloques `[b, h, m, x, y]`, apoyos y una tarjeta explicativa de 2–3 frases. Resultados esperados (se usan como tests).
+1. **Torre Simétrica Estable**. A = −30, B = 30. Bloques: [60,10,20,−30,0], [30,30,15,−15,10], [20,20,8,−10,40]. Esperado: x̄_G = 0, x̄_CM = 0, M = 43, ESTABLE, R_A = R_B.
+2. **Voladizo con Contrapeso**. A = −10, B = 30. Bloques: [40,10,20,−10,0], [50,10,10,20,10], [15,15,60,−10,10]. Esperado: x̄_G ≈ 23.06, x̄_CM ≈ 5.56, M = 90, ESTABLE.
+3. **Colapso por Geometría**. A = −10, B = 10. Bloques de igual densidad (0.1 kg/cm²): [40,10,40,−10,0], [30,20,60,10,10]. Esperado: x̄_G = x̄_CM = 19, M = 100, INESTABLE, pivote B, margen = −9 cm.
+4. **La Trampa de Densidad**. A = −20, B = 20. Bloques: [40,10,10,−20,0], [20,20,5,0,10], [20,10,80,20,0]. Esperado: x̄_G = 10 (dentro), x̄_CM ≈ 25.79 (fuera), M = 95, INESTABLE, pivote B. La tarjeta debe señalar explícitamente la diferencia entre centroide y centro de masa.
+
+# 9. EXPORTACIÓN
+- "Exportar PNG": captura del canvas a resolución ×2 con rótulo (nombre del preset, fecha, estado).
+- "Reporte técnico": vista imprimible (`window.print()` con una hoja de estilos `@media print` en fondo blanco) con tabla de bloques, resultados, estado de estabilidad, el desarrollo KaTeX y la imagen del lienzo.
+
+# 10. CALIDAD
+- TypeScript estricto, sin `any`. Componentes pequeños y separados: `TopBar`, `BlockList`, `BlockInspector`, `SupportsInspector`, `Viewport`, `AnalysisPanel`, `StabilityCard`, `PresetCards`.
+- Tests Vitest (`src/lib/physics.test.ts`): los 4 presets con tolerancia 1e-2, casos borde (M = 0, xA = xB, xA > xB), equilibrio de reacciones, e I_P de un bloque único contra la fórmula conocida.
+- Rendimiento: sin re-renders del panel por frames del lienzo; el panel derecho solo se actualiza al cambiar el estado del modelo.
+- README en español: requisitos (solo Docker), comandos, estructura del proyecto, explicación del modelo físico y despliegue en GitHub Pages.
+
+# 11. CRITERIOS DE ACEPTACIÓN
+- [ ] `docker compose up` sirve la app en el puerto 5173 y el HMR funciona.
+- [ ] `docker compose run --rm app npm run build` termina sin errores y `dist/index.html` carga con rutas relativas (probado abriendo `dist` bajo una subruta).
+- [ ] `docker compose run --rm app npm run test` pasa todos los tests.
+- [ ] Los 4 presets reproducen los resultados esperados de la sección 8.
+- [ ] El preset 4 muestra x̄_G dentro de la base y x̄_CM fuera, con vuelco animado en torno a B.
+- [ ] Arrastrar bloques y apoyos actualiza panel, marcadores y plomada en tiempo real, sin tirones.
+- [ ] No hay peticiones de red externas en producción (fuentes y KaTeX empaquetados).
+- [ ] No hay NaN visibles ni errores en consola en los casos borde.
+
+Comienza ahora únicamente con la **FASE 1**.
+\end{Prompt}
+
+\subsection{Correcciones e instrucciones posteriores}
+
+Cada instrucción se reproduce literalmente, seguida del motivo y de lo que se obtuvo.
+
+\subsubsection*{Corrección 1 — Sesión 2 (responsable: Hugo)}
+\begin{Prompt}
+Continua el desarrollo, aun esta lejos de ser un laboratorio de centroides y centros de masa
+\end{Prompt}
+\textbf{Motivo.} Tras la Fase 1 la aplicación sólo tenía la infraestructura y el esqueleto visual; todavía
+no calculaba nada. \textbf{Resultado.} Fase 2: motor \texttt{physics.ts} con trazas de cada sumando,
+presets como datos, panel con tarjeta de diagnóstico, reacciones y desarrollo KaTeX.
+
+\subsubsection*{Corrección 2 — Sesión 3 (responsable: Daniela)}
+\begin{Prompt}
+continua
+\end{Prompt}
+\textbf{Resultado.} Fase 3: lienzo CAD interactivo. En la revisión se corrigieron dos defectos de fases
+anteriores: el nombre de un bloque se recortaba con cada tecla (no se podían escribir espacios) y
+«Centrar plano» forzaba el zoom al 100\,\% en lugar de encuadrar el modelo.
+
+\subsubsection*{Corrección 3 — Sesión 4 (responsables: Sara y Hugo)}
+\begin{Prompt}
+continua
+\end{Prompt}
+\textbf{Resultado.} Fase 4: simulación de gravedad, tarjetas de presets, exportación PNG ($\times 2$ con
+rótulo), reporte técnico imprimible y README.
+
+\subsubsection*{Corrección 4 — Sesión 5 (responsable: Daniela)}
+\begin{Prompt}
+Continua hasta terminar
+\end{Prompt}
+\textbf{Resultado.} Entrega de los dos archivos restantes (\texttt{render.ts}, \texttt{Viewport.tsx}) y
+cierre de los 8 criterios de aceptación.
+
+\subsubsection*{Corrección 5 — Sesión 6 (responsables: los tres)}
+\begin{Prompt}
+Mejora la estetica visual, dale estilo enterprise, agrega para generar figuras mediante ecuaciones, drag and drop de figuras geometricas
+\end{Prompt}
+Antes de implementar, el agente planteó cuatro preguntas de diseño. Respuestas del equipo:
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{L{5.2cm}Y}
+\toprule
+\textbf{Pregunta} & \textbf{Decisión del equipo}\\
+\midrule
+Tipo de figura por ecuación & Región entre $f(x)$ y $g(x)$ en $[a,b]$\\
+Figuras de la paleta & Rectángulo y triángulo; círculo y semicírculo; cuarto de círculo y trapecio; polígono libre\\
+Alcance del estilo \emph{enterprise} & Rediseño completo\\
+Forma de entrega & Implementar y resumir\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{Resultado.} Modelo generalizado a 8 tipos de figura, analizador de expresiones propio (sin
+\texttt{eval}), integración numérica de Simpson, paleta con arrastrar y soltar, diálogos de ecuación y de
+polígono, inspector por tipo de figura y nueva interfaz (barra de título, cinta de herramientas agrupada,
+barra lateral de actividades, pestañas y barra de estado). Se añadieron los presets \emph{Arco Parabólico}
+y \emph{Figuras Combinadas}.
+
+\subsubsection*{Corrección 6 — Sesión 7 (responsables: Hugo, Daniela y Sara)}
+\begin{Prompt}
+Corrige un error con la simulacion, le doy a simular pero no hace nada por alguna razon, ademas generame el codigo Latex de una bitacora que contenga el desglose de esto realizado por 3 usuarios, Sara, Hugo y Daniela, desglosarlo a forma de que los 3 tuvieron trabajo uniforme, coloca el primer promt que te di y las correcciones que te fui dando para demostrar las evidencias en el desarrollo de la app
+\end{Prompt}
+\textbf{Resultado.} Ver la sección~\ref{sec:sim} y este documento.
+
+% ---------------------------------------------------------------------
+\section{Modelo matemático implementado}
+
+\subsection{De la integral a la suma}
+Para una región plana $R$ con densidad superficial $\rho$:
+\[
+\bar x_G=\frac{\iint_R x\,dA}{\iint_R dA},\qquad
+\bar x_{CM}=\frac{\iint_R x\,\rho\,dA}{\iint_R \rho\,dA}.
+\]
+Para un rectángulo homogéneo $[x_0,x_0+b]\times[y_0,y_0+h]$:
+\[
+\iint x\,dA = h\,\frac{(x_0+b)^2-x_0^2}{2}= b\,h\left(x_0+\frac b2\right)=A_i\,x_i,
+\]
+y por la aditividad de la integral sobre regiones disjuntas,
+$\bar x_G=\sum A_i x_i/\sum A_i$ y $\bar x_{CM}=\sum m_i x_i/\sum m_i$.
+
+\subsection{Regiones definidas por ecuaciones}
+Para la región $g(x)\le y\le f(x)$, $x\in[a,b]$ (regla de Simpson con $n=600$):
+\[
+A=\int_a^b\!\big[f(x)-g(x)\big]dx,\quad
+\bar x=\frac1A\int_a^b\! x\big[f(x)-g(x)\big]dx,\quad
+\bar y=\frac1A\int_a^b\!\tfrac12\big[f(x)^2-g(x)^2\big]dx .
+\]
+Comprobación (preset \emph{Arco Parabólico}): $f(x)=20-\tfrac{x^2}{20}$, $g=0$, $[-20,20]$
+$\Rightarrow A=533{,}33\ \text{cm}^2$, $\bar y=8\ \text{cm}=\tfrac25 h$.
+
+\subsection{Estabilidad, reacciones y vuelco}
+\begin{itemize}
+  \item Estable si $x_{\min}\le \bar x_{CM}\le x_{\max}$; margen $=\min(\bar x_{CM}-x_{\min},\,x_{\max}-\bar x_{CM})$.
+  \item $R_{\min}=W\,\dfrac{x_{\max}-\bar x_{CM}}{L}$, \quad $R_{\max}=W\,\dfrac{\bar x_{CM}-x_{\min}}{L}$, \quad $W=Mg$.
+  \item Vuelco: $I_P=\sum\big[I_{c,i}+m_i d_i^2\big]$, \quad
+        $\alpha=-\dfrac{Mg\,(r_x\cos\theta-r_y\sin\theta)}{I_P}$, Euler semi-implícito con $\Delta t=1/120$ s.
+\end{itemize}
+
+% ---------------------------------------------------------------------
+\section{Verificación y pruebas}
+
+\subsection{Evolución de las pruebas automatizadas}
+\begin{center}
+\small
+\begin{tabular}{lrl}
+\toprule
+\textbf{Etapa} & \textbf{Tests} & \textbf{Contenido principal}\\
+\midrule
+Fase 1 & 8 & Reducer del modelo y validación de rangos\\
+Fase 2 & 30 & Presets 1–4, casos borde, equilibrio, $I_P$\\
+Fase 3 & 38 & Cámara, cuadrícula adaptativa, sombreado por densidad\\
+Fase 4 & 46 & Dinámica del vuelco, independencia de FPS, energía\\
+Figuras y ecuaciones & 88 & Fórmulas exactas por figura, analizador de expresiones, Simpson\\
+Interfaz \emph{enterprise} & 103 & Fábrica de figuras (posición y validez de cada tipo)\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Resultados de los presets}
+\begin{center}
+\small
+\begin{tabular}{llllll}
+\toprule
+\textbf{Preset} & $\bar x_G$ & $\bar x_{CM}$ & $M$ & \textbf{Estado} & \textbf{Comprobación}\\
+\midrule
+1. Torre Simétrica & 0 & 0 & 43 kg & Estable & $R_A=R_B=210{,}92$ N \ok\\
+2. Voladizo con Contrapeso & 23,06 & 5,56 & 90 kg & Estable & \ok\\
+3. Colapso por Geometría & 19 & 19 & 100 kg & Inestable (B) & margen $-9$ cm \ok\\
+4. Trampa de Densidad & 10 & 25,79 & 95 kg & Inestable (B) & vuelco a $-26{,}57^\circ$ \ok\\
+5. Arco Parabólico & 0 & 0 & 30 kg & Estable & $\bar y_G = 8$ cm \ok\\
+6. Figuras Combinadas & 3,29 & 3,89 & 60 kg & Estable & \ok\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Criterios de aceptación}
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{Yc}
+\toprule
+\textbf{Criterio} & \textbf{Estado}\\
+\midrule
+\texttt{docker compose up} sirve la app en el puerto 5173 y el HMR funciona & \ok\\
+El build termina sin errores y carga con rutas relativas bajo una subruta & \ok\\
+Todos los tests pasan & \ok\\
+Los presets reproducen los resultados esperados & \ok\\
+Preset 4: $\bar x_G$ dentro, $\bar x_{CM}$ fuera y vuelco animado en torno a B & \ok\\
+El arrastre actualiza panel, marcadores y plomada en tiempo real & \ok\\
+Sin peticiones de red externas (fuentes y KaTeX empaquetados) & \ok\\
+Sin NaN visibles ni errores en consola en los casos borde & \ok\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{Defectos detectados y corregidos}
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{L{2.4cm}YY}
+\toprule
+\textbf{Etapa} & \textbf{Defecto} & \textbf{Corrección}\\
+\midrule
+Fase 3 & El nombre del bloque se recortaba en cada tecla & El recorte sólo se aplica al validar un nombre vacío\\
+Fase 3 & «Centrar plano» forzaba el zoom al 100\,\% & Ahora encuadra el modelo completo\\
+Figuras & Error de signo en el recorte de polígonos (área de solapamiento) & Parámetro de intersección corregido\\
+Figuras & Conversión de unidades aplicada dos veces en $I_P$ & $I_P=\sum m_i J_{c,i}/(A_i\cdot 10^4)+m_i d_i^2$\\
+Interfaz & La barra de estado no mostraba VOLCADO & Suscripción al estado de la simulación\\
+Interfaz & Etiquetas de la cinta recortadas y títulos duplicados & Botones más anchos y títulos únicos\\
+Simulación & «Le doy a simular pero no hace nada» & Ver sección~\ref{sec:sim}\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+% ---------------------------------------------------------------------
+\section{Corrección del error de simulación}\label{sec:sim}
+
+\subsection{Diagnóstico}
+Se reprodujo el problema en el navegador con distintos modelos y se midió cuántos fotogramas distintos
+dibujaba el lienzo durante 3 segundos. La simulación sí se ejecutaba, pero en varios casos no se percibía:
+
+\begin{enumerate}
+  \item \textbf{Vuelco demasiado rápido.} En los presets 3 y 4 el vuelco completo dura unos 0,19 s
+        simulados, que en tiempo real equivalen a unos pocos fotogramas.
+  \item \textbf{Giro imperceptible en figuras curvas.} Los contornos de círculos, semicírculos y regiones
+        por ecuación se muestrean con muchos vértices; los vértices vecinos al punto de apoyo quedan a
+        fracciones de centímetro del suelo. Si la figura descansa sobre el suelo más allá del pivote, el
+        primer impacto llega tras un giro de apenas $0{,}06^\circ$: físicamente el suelo impide el vuelco,
+        pero la pantalla no cambia y la tarjeta pasa directamente a VOLCADO.
+  \item \textbf{Modo estable estático.} En modelos estables sólo se añadían flechas de fuerza, sin
+        movimiento ni mensaje.
+  \item \textbf{Atajo de teclado inexistente.} La tecla \texttt{G} aparecía en la ayuda pero no estaba conectada.
+\end{enumerate}
+
+\subsection{Solución}
+La regla física de contacto no se modificó (es correcta). Se hizo la simulación perceptible y explicativa:
+\begin{itemize}
+  \item cámara lenta configurable ($\times1$, $\times0{,}5$, $\times0{,}25$, $\times0{,}1$; por defecto
+        $\times0{,}25$) sin alterar el paso fijo de integración, y botón \emph{Repetir};
+  \item aviso explicativo cuando el giro máximo es menor de $3^\circ$, indicando el vértice que toca el suelo y
+        cómo obtener un vuelco mayor;
+  \item marca de \emph{impacto} en el vértice que toca el suelo;
+  \item en modo estable, mensaje «sistema estable: no hay movimiento» y animación de crecimiento de las
+        flechas $R_A$, $R_B$ y $W$;
+  \item atajo \texttt{G} para iniciar y detener la simulación.
+\end{itemize}
+
+% ---------------------------------------------------------------------
+\section{Estructura final del proyecto}
+\begin{Prompt}
+├── Dockerfile, docker-compose.yml     Entorno de desarrollo y build sin dependencias locales
+├── .github/workflows/deploy.yml       Despliegue a GitHub Pages
+├── bitacora/bitacora.tex              Esta bitácora
+└── src/
+    ├── lib/        physics.ts, shapes.ts, expr.ts, dynamics.ts, derivation.ts, geometry.ts,
+    │               camera.ts, density.ts, shapeFactory.ts (+ tests *.test.ts)
+    ├── data/       presets.ts (6 presets con resultados esperados)
+    ├── canvas/     render.ts (dibujo 2D nativo)
+    ├── state/      modelo, análisis, vista, simulación, herramientas, reporte
+    └── components/ TitleBar, Ribbon, LeftPanel, RightPanel, StatusBar, Viewport, Palette,
+                    ShapeInspector, EquationDialog, PolygonDialog, SimulationCard, ...
+\end{Prompt}
+
+% ---------------------------------------------------------------------
+\section{Conclusiones}
+
+\begin{itemize}
+  \item Especificar con precisión (unidades, convenciones, datos de prueba y criterios de aceptación)
+        permitió verificar cada fase de forma objetiva: los resultados esperados de los presets se
+        convirtieron en pruebas automatizadas.
+  \item El trabajo por fases, con revisión antes de cada «continúa», ayudó a detectar defectos pronto.
+  \item Las correcciones más valiosas surgieron de usar la aplicación como lo haría un estudiante:
+        el error de la simulación no era un fallo del cálculo sino de cómo se presentaba.
+  \item La aplicación conecta directamente el contenido del curso: la integral
+        $\iint_R x\,\rho\,dA$ se reduce a sumas para figuras simples y se calcula numéricamente para
+        regiones entre curvas.
+\end{itemize}
+
+\end{document}
